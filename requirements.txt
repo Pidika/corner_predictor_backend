@@ -1,0 +1,12 @@
+
+Flask
+gunicorn
+pandas
+numpy
+xgboost
+scikit-learn
+joblib
+python-dotenv
+requests
+psycopg2-binary
+Flask-Cors
