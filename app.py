@@ -80,58 +80,37 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 from predictor import make_multi_line_prediction
-from odds_fetcher import fetch_and_save_upcoming_matches
 
 load_dotenv()
 
+# Serve React App from a 'build' folder in production
 app = Flask(__name__, static_folder='build', static_url_path='/')
 CORS(app)
 
-CRON_SECRET = os.getenv('CRON_SECRET')
-
-# --- NEW: Define the persistent storage path ---
-PERSISTENT_STORAGE_DIR = '/data'
-PERSISTENT_STORAGE_FILENAME = 'upcoming_matches.json'
-
-@app.route('/api/upcoming-matches', methods=['GET'])
-def get_upcoming_matches():
-    """
-    Serves the pre-fetched upcoming matches from the persistent disk.
-    """
-    try:
-        return send_from_directory(PERSISTENT_STORAGE_DIR, PERSISTENT_STORAGE_FILENAME)
-    except FileNotFoundError:
-        return jsonify({"error": "Upcoming matches file not found. The daily cron job may not have run yet."}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
 @app.route('/api/predict', methods=['POST'])
 def predict():
-    # ... (This endpoint remains the same)
+    """
+    This is now the only API endpoint. It receives match data and returns a prediction.
+    """
     data = request.get_json()
     required_fields = ['home_team', 'away_team', 'odd_home', 'odd_draw', 'odd_away']
     if not all(field in data for field in required_fields):
         return jsonify({"error": "Missing required fields in request body"}), 400
+
     prediction = make_multi_line_prediction(data)
+
     if "error" in prediction:
         return jsonify(prediction), 404
-    return jsonify(prediction)
 
-@app.route('/api/trigger-odds-fetch', methods=['POST'])
-def trigger_odds_fetch():
-    # ... (This endpoint remains the same)
-    auth_header = request.headers.get('Authorization')
-    if not CRON_SECRET or auth_header != f'Bearer {CRON_SECRET}':
-        return jsonify({"error": "Unauthorized"}), 401
-    print("Cron job triggered. Fetching upcoming matches...")
-    result = fetch_and_save_upcoming_matches()
-    return jsonify(result)
+    return jsonify(prediction)
 
 # Serve React App (for production)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    # ... (This endpoint remains the same)
+    """
+    Serves the React application's static files.
+    """
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
@@ -139,4 +118,3 @@ def serve(path):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
-
